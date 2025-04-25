@@ -110,7 +110,7 @@ func readCsvData(filename string) ([][]string, error) {
 func buildResultFromCache() ([]ClientDetail, error) {
 	log.Println("Building result from CSV cache...")
 
-	// Read all CSV files
+	// --- Read Base Data CSV files ---
 	clientRecords, err := readCsvData("clients.csv")
 	if err != nil {
 		return nil, err
@@ -128,34 +128,165 @@ func buildResultFromCache() ([]ClientDetail, error) {
 		return nil, err
 	}
 
+	// --- Read Asset Data CSV files (handle missing files gracefully) ---
+	assetSummaryRecords, errAssetSummary := readCsvData("asset_summary.csv")
+	if errAssetSummary != nil && !os.IsNotExist(errAssetSummary) {
+		return nil, fmt.Errorf("failed to read asset_summary.csv: %w", errAssetSummary)
+	} else if os.IsNotExist(errAssetSummary) {
+		log.Println("Warning: asset_summary.csv not found in cache. Asset details will be missing.")
+		assetSummaryRecords = [][]string{} // Empty slice
+	}
+
+	hardwareRecords, errHardware := readCsvData("hardware_assets.csv")
+	if errHardware != nil && !os.IsNotExist(errHardware) {
+		return nil, fmt.Errorf("failed to read hardware_assets.csv: %w", errHardware)
+	} else if os.IsNotExist(errHardware) {
+		log.Println("Warning: hardware_assets.csv not found in cache. Hardware details will be missing.")
+		hardwareRecords = [][]string{} // Empty slice
+	}
+
+	softwareRecords, errSoftware := readCsvData("software_assets.csv")
+	if errSoftware != nil && !os.IsNotExist(errSoftware) {
+		return nil, fmt.Errorf("failed to read software_assets.csv: %w", errSoftware)
+	} else if os.IsNotExist(errSoftware) {
+		log.Println("Warning: software_assets.csv not found in cache. Software details will be missing.")
+		softwareRecords = [][]string{} // Empty slice
+	}
+
 	// --- Process records into usable maps for efficient lookup ---
 
 	// Map clientID -> Client Name
 	clientMap := make(map[int]string)
 	for _, rec := range clientRecords {
 		if len(rec) < 2 {
+			log.Printf("Warning: Skipping malformed client record in cache: %v", rec)
 			continue
 		}
-		id, err := strconv.Atoi(rec[0])
+		clientID, err := strconv.Atoi(rec[0])
 		if err != nil {
+			log.Printf("Warning: Skipping client record with invalid ID: %v", rec)
 			continue
 		}
-		clientMap[id] = rec[1]
+		clientMap[clientID] = rec[1]
 	}
 
 	// Map clientID -> list of Sites (ID, Name)
 	sitesByClient := make(map[int][]SiteDetail)
 	for _, rec := range siteRecords {
 		if len(rec) < 3 {
+			log.Printf("Warning: Skipping malformed site record in cache: %v", rec)
 			continue
 		}
 		siteID, errS := strconv.Atoi(rec[0])
 		clientID, errC := strconv.Atoi(rec[2])
 		if errS != nil || errC != nil {
+			log.Printf("Warning: Skipping site record with invalid numeric data: %v", rec)
 			continue
 		}
 		sitesByClient[clientID] = append(sitesByClient[clientID], SiteDetail{ID: siteID, Name: rec[1]})
 	}
+
+	// --- Process Asset Data into Maps ---
+
+	// Map deviceID -> Asset Summary Data (using AssetDetails struct for convenience)
+	assetSummaryMap := make(map[int]nsight.AssetDetails)
+	for _, rec := range assetSummaryRecords {
+		if len(rec) < 37 { // Expected number of columns in asset_summary.csv
+			log.Printf("Warning: Skipping malformed asset summary record in cache: %v", rec)
+			continue
+		}
+		deviceID, err := strconv.Atoi(rec[0])
+		if err != nil {
+			log.Printf("Warning: Skipping asset summary record with invalid device ID: %v", rec)
+			continue
+		}
+		ram, _ := strconv.ParseInt(rec[15], 10, 64) // Ignore error, default to 0
+		assetSummaryMap[deviceID] = nsight.AssetDetails{
+			Client:       rec[1],
+			ChassisType:  rec[2],
+			IP:           rec[3],
+			MAC1:         rec[4],
+			MAC2:         rec[5],
+			MAC3:         rec[6],
+			User:         rec[7],
+			Manufacturer: rec[8],
+			Model:        rec[9],
+			OS:           rec[10],
+			SerialNumber: rec[11],
+			ProductKey:   rec[12],
+			Role:         rec[13],
+			ServicePack:  rec[14],
+			RAM:          ram,
+			ScanTime:     rec[16],
+			Custom1:      nsight.CustomField{Name: rec[17], Value: rec[18]},
+			Custom2:      nsight.CustomField{Name: rec[19], Value: rec[20]},
+			Custom3:      nsight.CustomField{Name: rec[21], Value: rec[22]},
+			Custom4:      nsight.CustomField{Name: rec[23], Value: rec[24]},
+			Custom5:      nsight.CustomField{Name: rec[25], Value: rec[26]},
+			Custom6:      nsight.CustomField{Name: rec[27], Value: rec[28]},
+			Custom7:      nsight.CustomField{Name: rec[29], Value: rec[30]},
+			Custom8:      nsight.CustomField{Name: rec[31], Value: rec[32]},
+			Custom9:      nsight.CustomField{Name: rec[33], Value: rec[34]},
+			Custom10:     nsight.CustomField{Name: rec[35], Value: rec[36]},
+			// Hardware and Software lists will be populated later
+		}
+	}
+
+	// Map deviceID -> []HardwareItem
+	hardwareMap := make(map[int][]nsight.HardwareItem)
+	for _, rec := range hardwareRecords {
+		if len(rec) < 9 { // Expected columns in hardware_assets.csv
+			log.Printf("Warning: Skipping malformed hardware asset record in cache: %v", rec)
+			continue
+		}
+		deviceID, err := strconv.Atoi(rec[0])
+		if err != nil {
+			log.Printf("Warning: Skipping hardware asset record with invalid device ID: %v", rec)
+			continue
+		}
+		hwID, _ := strconv.Atoi(rec[1])
+		hwType, _ := strconv.Atoi(rec[3])
+		hwDeleted, _ := strconv.Atoi(rec[7])
+		hwModified, _ := strconv.Atoi(rec[8])
+		hardwareMap[deviceID] = append(hardwareMap[deviceID], nsight.HardwareItem{
+			HardwareID:   hwID,
+			Name:         rec[2],
+			Type:         hwType,
+			Manufacturer: rec[4],
+			Details:      rec[5],
+			Status:       rec[6],
+			Deleted:      hwDeleted,
+			Modified:     hwModified,
+		})
+	}
+
+	// Map deviceID -> []SoftwareItem
+	softwareMap := make(map[int][]nsight.SoftwareItem)
+	for _, rec := range softwareRecords {
+		if len(rec) < 8 { // Expected columns in software_assets.csv
+			log.Printf("Warning: Skipping malformed software asset record in cache: %v", rec)
+			continue
+		}
+		deviceID, err := strconv.Atoi(rec[0])
+		if err != nil {
+			log.Printf("Warning: Skipping software asset record with invalid device ID: %v", rec)
+			continue
+		}
+		swID, _ := strconv.Atoi(rec[1])
+		swDeleted, _ := strconv.Atoi(rec[6])
+		swModified, _ := strconv.Atoi(rec[7])
+		softwareMap[deviceID] = append(softwareMap[deviceID], nsight.SoftwareItem{
+			SoftwareID:  swID,
+			Name:        rec[2],
+			Version:     rec[3],
+			InstallDate: rec[4],
+			Type:        rec[5],
+			Deleted:     swDeleted,
+			Modified:    swModified,
+		})
+	}
+
+	// --- Process Base Data (Servers and Workstations) and combine with Asset Data ---
 
 	// Map siteID -> list of Servers
 	serversBySite := make(map[int][]ServerDetail)
@@ -172,6 +303,15 @@ func buildResultFromCache() ([]ClientDetail, error) {
 			log.Printf("Warning: Skipping server record with invalid numeric data: %v", rec)
 			continue
 		}
+
+		// Look up and assign asset details from maps
+		var assetInfoPtr *nsight.AssetDetails
+		if summary, ok := assetSummaryMap[serverID]; ok {
+			summary.Hardware = hardwareMap[serverID] // Assign hardware list
+			summary.Software = softwareMap[serverID] // Assign software list
+			assetInfoPtr = &summary                  // Assign pointer to the combined struct
+		}
+
 		serversBySite[siteID] = append(serversBySite[siteID], ServerDetail{
 			ID:           serverID,
 			Name:         rec[1],
@@ -183,6 +323,7 @@ func buildResultFromCache() ([]ClientDetail, error) {
 			Model:        rec[7],
 			DeviceSerial: rec[8],
 			LastBootTime: formatUnixTimestamp(rec[9]), // Format timestamp
+			AssetInfo:    assetInfoPtr,                // Assign asset details from cache
 		})
 	}
 
@@ -201,6 +342,15 @@ func buildResultFromCache() ([]ClientDetail, error) {
 			log.Printf("Warning: Skipping workstation record with invalid numeric data: %v", rec)
 			continue
 		}
+
+		// Look up and assign asset details from maps
+		var assetInfoPtr *nsight.AssetDetails
+		if summary, ok := assetSummaryMap[wsID]; ok {
+			summary.Hardware = hardwareMap[wsID] // Assign hardware list
+			summary.Software = softwareMap[wsID] // Assign software list
+			assetInfoPtr = &summary              // Assign pointer to the combined struct
+		}
+
 		workstationsBySite[siteID] = append(workstationsBySite[siteID], WorkstationDetail{
 			ID:           wsID,
 			Name:         rec[1],
@@ -212,6 +362,7 @@ func buildResultFromCache() ([]ClientDetail, error) {
 			Model:        rec[7],
 			DeviceSerial: rec[8],
 			LastBootTime: formatUnixTimestamp(rec[9]), // Format timestamp
+			AssetInfo:    assetInfoPtr,                // Assign asset details from cache
 		})
 	}
 
@@ -228,14 +379,27 @@ func buildResultFromCache() ([]ClientDetail, error) {
 		sites, ok := sitesByClient[clientID]
 		if ok {
 			for _, site := range sites {
+				// Ensure Servers and Workstations are initialized to empty slices if nil
+				servers := serversBySite[site.ID]
+				if servers == nil {
+					servers = []ServerDetail{}
+				}
+				workstations := workstationsBySite[site.ID]
+				if workstations == nil {
+					workstations = []WorkstationDetail{}
+				}
 				siteDetail := SiteDetail{
 					ID:           site.ID,
 					Name:         site.Name,
-					Servers:      serversBySite[site.ID],      // Will be nil if no servers, which is fine for JSON omitempty
-					Workstations: workstationsBySite[site.ID], // Will be nil if no workstations
+					Servers:      servers,
+					Workstations: workstations,
 				}
 				clientDetail.Sites = append(clientDetail.Sites, siteDetail)
 			}
+		}
+		// Ensure Sites slice is not nil if it remained empty
+		if clientDetail.Sites == nil {
+			clientDetail.Sites = []SiteDetail{}
 		}
 
 		finalResult = append(finalResult, clientDetail)
@@ -295,14 +459,18 @@ func main() {
 
 		// Prepare CSV Writers (only needed in non-cache mode)
 		csvHeaders := map[string][]string{
-			"clients":      {"client_id", "name"},
-			"sites":        {"site_id", "name", "client_id"},
-			"servers":      {"server_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
-			"workstations": {"workstation_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
+			"clients":         {"client_id", "name"},
+			"sites":           {"site_id", "name", "client_id"},
+			"servers":         {"server_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
+			"workstations":    {"workstation_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
+			"asset_summary":   {"device_id", "client_name", "chassistype", "ip_asset", "mac1", "mac2", "mac3", "user_asset", "manufacturer_asset", "model_asset", "os_asset", "serialnumber_asset", "productkey", "role", "servicepack", "ram", "scantime", "custom1_name", "custom1_value", "custom2_name", "custom2_value", "custom3_name", "custom3_value", "custom4_name", "custom4_value", "custom5_name", "custom5_value", "custom6_name", "custom6_value", "custom7_name", "custom7_value", "custom8_name", "custom8_value", "custom9_name", "custom9_value", "custom10_name", "custom10_value"},
+			"hardware_assets": {"device_id", "hardware_id", "name", "type", "manufacturer", "details", "status", "deleted", "modified"},
+			"software_assets": {"device_id", "software_id", "name", "version", "install_date", "type", "deleted", "modified"},
 		}
 		writers := make(map[string]*csv.Writer)
 		files := make(map[string]*os.File)
 		defer func() {
+			log.Println("Flushing and closing CSV files...")
 			for name, writer := range writers {
 				writer.Flush()
 				if ferr := writer.Error(); ferr != nil {
@@ -311,9 +479,10 @@ func main() {
 			}
 			for name, file := range files {
 				if ferr := file.Close(); ferr != nil {
-					log.Printf("Error closing file %s: %v", name, ferr)
+					log.Printf("Error closing file %s.csv: %v", name, ferr)
 				}
 			}
+			log.Println("Finished flushing and closing CSV files.")
 		}()
 
 		for name, header := range csvHeaders {
@@ -401,7 +570,7 @@ func main() {
 						// assetDetails will be nil, so AssetInfo will be omitted in JSON
 					}
 
-					// Write server to CSV (extended data) - CSV does not include asset details
+					// Write server to CSV (primary data)
 					if err := writers["servers"].Write([]string{
 						strconv.Itoa(server.ServerID),
 						server.Name,
@@ -418,7 +587,43 @@ func main() {
 					}); err != nil {
 						log.Printf("Warning: Failed to write server %d to CSV: %v", server.ServerID, err)
 					}
-					// Append server detail to site (extended data)
+
+					// Write asset details to separate CSVs if fetched successfully
+					if assetDetails != nil {
+						deviceIDStr := strconv.Itoa(server.ServerID)
+						// Write asset summary
+						if err := writers["asset_summary"].Write([]string{
+							deviceIDStr,
+							assetDetails.Client, assetDetails.ChassisType, assetDetails.IP, assetDetails.MAC1, assetDetails.MAC2, assetDetails.MAC3,
+							assetDetails.User, assetDetails.Manufacturer, assetDetails.Model, assetDetails.OS, assetDetails.SerialNumber,
+							assetDetails.ProductKey, assetDetails.Role, assetDetails.ServicePack, strconv.FormatInt(assetDetails.RAM, 10), assetDetails.ScanTime,
+							assetDetails.Custom1.Name, assetDetails.Custom1.Value, assetDetails.Custom2.Name, assetDetails.Custom2.Value,
+							assetDetails.Custom3.Name, assetDetails.Custom3.Value, assetDetails.Custom4.Name, assetDetails.Custom4.Value,
+							assetDetails.Custom5.Name, assetDetails.Custom5.Value, assetDetails.Custom6.Name, assetDetails.Custom6.Value,
+							assetDetails.Custom7.Name, assetDetails.Custom7.Value, assetDetails.Custom8.Name, assetDetails.Custom8.Value,
+							assetDetails.Custom9.Name, assetDetails.Custom9.Value, assetDetails.Custom10.Name, assetDetails.Custom10.Value,
+						}); err != nil {
+							log.Printf("Warning: Failed to write asset summary for device %s to CSV: %v", deviceIDStr, err)
+						}
+						// Write hardware items
+						for _, item := range assetDetails.Hardware {
+							if err := writers["hardware_assets"].Write([]string{
+								deviceIDStr, strconv.Itoa(item.HardwareID), item.Name, strconv.Itoa(item.Type), item.Manufacturer, item.Details, item.Status, strconv.Itoa(item.Deleted), strconv.Itoa(item.Modified),
+							}); err != nil {
+								log.Printf("Warning: Failed to write hardware asset %d for device %s to CSV: %v", item.HardwareID, deviceIDStr, err)
+							}
+						}
+						// Write software items
+						for _, item := range assetDetails.Software {
+							if err := writers["software_assets"].Write([]string{
+								deviceIDStr, strconv.Itoa(item.SoftwareID), item.Name, item.Version, item.InstallDate, item.Type, strconv.Itoa(item.Deleted), strconv.Itoa(item.Modified),
+							}); err != nil {
+								log.Printf("Warning: Failed to write software asset %d for device %s to CSV: %v", item.SoftwareID, deviceIDStr, err)
+							}
+						}
+					}
+
+					// Append server detail to site (including asset info pointer)
 					siteDetail.Servers = append(siteDetail.Servers, ServerDetail{
 						ID:           server.ServerID,
 						Name:         server.Name,
@@ -446,7 +651,7 @@ func main() {
 						// assetDetails will be nil, so AssetInfo will be omitted in JSON
 					}
 
-					// Write workstation to CSV (extended data) - CSV does not include asset details
+					// Write workstation to CSV (primary data)
 					if err := writers["workstations"].Write([]string{
 						strconv.Itoa(ws.WorkstationID),
 						ws.Name,
@@ -463,7 +668,43 @@ func main() {
 					}); err != nil {
 						log.Printf("Warning: Failed to write workstation %d to CSV: %v", ws.WorkstationID, err)
 					}
-					// Append workstation detail to site (extended data)
+
+					// Write asset details to separate CSVs if fetched successfully
+					if assetDetails != nil {
+						deviceIDStr := strconv.Itoa(ws.WorkstationID)
+						// Write asset summary
+						if err := writers["asset_summary"].Write([]string{
+							deviceIDStr,
+							assetDetails.Client, assetDetails.ChassisType, assetDetails.IP, assetDetails.MAC1, assetDetails.MAC2, assetDetails.MAC3,
+							assetDetails.User, assetDetails.Manufacturer, assetDetails.Model, assetDetails.OS, assetDetails.SerialNumber,
+							assetDetails.ProductKey, assetDetails.Role, assetDetails.ServicePack, strconv.FormatInt(assetDetails.RAM, 10), assetDetails.ScanTime,
+							assetDetails.Custom1.Name, assetDetails.Custom1.Value, assetDetails.Custom2.Name, assetDetails.Custom2.Value,
+							assetDetails.Custom3.Name, assetDetails.Custom3.Value, assetDetails.Custom4.Name, assetDetails.Custom4.Value,
+							assetDetails.Custom5.Name, assetDetails.Custom5.Value, assetDetails.Custom6.Name, assetDetails.Custom6.Value,
+							assetDetails.Custom7.Name, assetDetails.Custom7.Value, assetDetails.Custom8.Name, assetDetails.Custom8.Value,
+							assetDetails.Custom9.Name, assetDetails.Custom9.Value, assetDetails.Custom10.Name, assetDetails.Custom10.Value,
+						}); err != nil {
+							log.Printf("Warning: Failed to write asset summary for device %s to CSV: %v", deviceIDStr, err)
+						}
+						// Write hardware items
+						for _, item := range assetDetails.Hardware {
+							if err := writers["hardware_assets"].Write([]string{
+								deviceIDStr, strconv.Itoa(item.HardwareID), item.Name, strconv.Itoa(item.Type), item.Manufacturer, item.Details, item.Status, strconv.Itoa(item.Deleted), strconv.Itoa(item.Modified),
+							}); err != nil {
+								log.Printf("Warning: Failed to write hardware asset %d for device %s to CSV: %v", item.HardwareID, deviceIDStr, err)
+							}
+						}
+						// Write software items
+						for _, item := range assetDetails.Software {
+							if err := writers["software_assets"].Write([]string{
+								deviceIDStr, strconv.Itoa(item.SoftwareID), item.Name, item.Version, item.InstallDate, item.Type, strconv.Itoa(item.Deleted), strconv.Itoa(item.Modified),
+							}); err != nil {
+								log.Printf("Warning: Failed to write software asset %d for device %s to CSV: %v", item.SoftwareID, deviceIDStr, err)
+							}
+						}
+					}
+
+					// Append workstation detail to site (including asset info pointer)
 					siteDetail.Workstations = append(siteDetail.Workstations, WorkstationDetail{
 						ID:           ws.WorkstationID,
 						Name:         ws.Name,
