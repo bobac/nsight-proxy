@@ -10,26 +10,55 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"nsight-proxy/internal/nsight"
 )
 
+// formatUnixTimestamp converts a Unix timestamp string to "DD.MM.YYYY HH:MM:SS" format.
+// Returns an empty string if the input is invalid or conversion fails.
+func formatUnixTimestamp(timestampStr string) string {
+	if timestampStr == "" {
+		return ""
+	}
+	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+	if err != nil {
+		log.Printf("Warning: Failed to parse timestamp '%s': %v", timestampStr, err)
+		return "" // Or return timestampStr ? Or a placeholder like "Invalid Date"?
+	}
+	if timestamp == 0 { // Often used as a nil time value
+		return ""
+	}
+	t := time.Unix(timestamp, 0)
+	return t.Format("02.01.2006 15:04:05")
+}
+
 // --- Output Structures for Nested JSON ---
 
 type ServerDetail struct {
-	ID     int    `json:"server_id"`
-	Name   string `json:"server_name"`
-	Online bool   `json:"online"`
-	OS     string `json:"os,omitempty"`
-	IP     string `json:"ip,omitempty"`
+	ID           int    `json:"server_id"`
+	Name         string `json:"server_name"`
+	Online       bool   `json:"online"`
+	OS           string `json:"os,omitempty"`
+	IP           string `json:"ip,omitempty"`
+	User         string `json:"user,omitempty"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Model        string `json:"model,omitempty"`
+	DeviceSerial string `json:"serial_number,omitempty"`
+	LastBootTime string `json:"last_boot_time,omitempty"`
 }
 
 type WorkstationDetail struct {
-	ID     int    `json:"workstation_id"`
-	Name   string `json:"workstation_name"`
-	Online bool   `json:"online"`
-	OS     string `json:"os,omitempty"`
-	IP     string `json:"ip,omitempty"`
+	ID           int    `json:"workstation_id"`
+	Name         string `json:"workstation_name"`
+	Online       bool   `json:"online"`
+	OS           string `json:"os,omitempty"`
+	IP           string `json:"ip,omitempty"`
+	User         string `json:"user,omitempty"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Model        string `json:"model,omitempty"`
+	DeviceSerial string `json:"serial_number,omitempty"`
+	LastBootTime string `json:"last_boot_time,omitempty"`
 }
 
 type SiteDetail struct {
@@ -129,42 +158,58 @@ func buildResultFromCache() ([]ClientDetail, error) {
 	// Map siteID -> list of Servers
 	serversBySite := make(map[int][]ServerDetail)
 	for _, rec := range serverRecords {
-		if len(rec) < 6 {
+		// Check for the extended number of columns (now 12: ID, Name, OS, IP, Online, User, Manufacturer, Model, Serial, LastBootTime, SiteID, ClientID)
+		if len(rec) < 12 { // Updated count
+			log.Printf("Warning: Skipping malformed server record in cache: %v", rec)
 			continue
 		}
 		serverID, errSv := strconv.Atoi(rec[0])
 		onlineInt, errO := strconv.Atoi(rec[4])
-		siteID, errSi := strconv.Atoi(rec[5])
+		siteID, errSi := strconv.Atoi(rec[10]) // Site ID is now at index 10
 		if errSv != nil || errO != nil || errSi != nil {
+			log.Printf("Warning: Skipping server record with invalid numeric data: %v", rec)
 			continue
 		}
 		serversBySite[siteID] = append(serversBySite[siteID], ServerDetail{
-			ID:     serverID,
-			Name:   rec[1],
-			OS:     rec[2],
-			IP:     rec[3],
-			Online: onlineInt == 1,
+			ID:           serverID,
+			Name:         rec[1],
+			OS:           rec[2],
+			IP:           rec[3],
+			Online:       onlineInt == 1,
+			User:         rec[5],
+			Manufacturer: rec[6],
+			Model:        rec[7],
+			DeviceSerial: rec[8],
+			LastBootTime: formatUnixTimestamp(rec[9]), // Format timestamp
 		})
 	}
 
 	// Map siteID -> list of Workstations
 	workstationsBySite := make(map[int][]WorkstationDetail)
 	for _, rec := range workstationRecords {
-		if len(rec) < 6 {
+		// Check for the extended number of columns (now 12)
+		if len(rec) < 12 { // Updated count
+			log.Printf("Warning: Skipping malformed workstation record in cache: %v", rec)
 			continue
 		}
 		wsID, errW := strconv.Atoi(rec[0])
 		onlineInt, errO := strconv.Atoi(rec[4])
-		siteID, errS := strconv.Atoi(rec[5])
+		siteID, errS := strconv.Atoi(rec[10]) // Site ID is now at index 10
 		if errW != nil || errO != nil || errS != nil {
+			log.Printf("Warning: Skipping workstation record with invalid numeric data: %v", rec)
 			continue
 		}
 		workstationsBySite[siteID] = append(workstationsBySite[siteID], WorkstationDetail{
-			ID:     wsID,
-			Name:   rec[1],
-			OS:     rec[2],
-			IP:     rec[3],
-			Online: onlineInt == 1,
+			ID:           wsID,
+			Name:         rec[1],
+			OS:           rec[2],
+			IP:           rec[3],
+			Online:       onlineInt == 1,
+			User:         rec[5],
+			Manufacturer: rec[6],
+			Model:        rec[7],
+			DeviceSerial: rec[8],
+			LastBootTime: formatUnixTimestamp(rec[9]), // Format timestamp
 		})
 	}
 
@@ -250,8 +295,8 @@ func main() {
 		csvHeaders := map[string][]string{
 			"clients":      {"client_id", "name"},
 			"sites":        {"site_id", "name", "client_id"},
-			"servers":      {"server_id", "name", "os", "ip", "online", "site_id", "client_id"},
-			"workstations": {"workstation_id", "name", "os", "ip", "online", "site_id", "client_id"},
+			"servers":      {"server_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
+			"workstations": {"workstation_id", "name", "os", "ip", "online", "user", "manufacturer", "model", "serial_number", "last_boot_time", "site_id", "client_id"},
 		}
 		writers := make(map[string]*csv.Writer)
 		files := make(map[string]*os.File)
@@ -344,45 +389,75 @@ func main() {
 
 				// Process and write servers
 				for _, server := range servers {
+					// Format the timestamp
+					formattedBootTime := formatUnixTimestamp(server.LastBootTime)
+
+					// Write server to CSV (extended data)
 					if err := writers["servers"].Write([]string{
 						strconv.Itoa(server.ServerID),
 						server.Name,
 						server.OS,
 						server.IP,
 						strconv.Itoa(server.Online),
+						server.User,
+						server.Manufacturer,
+						server.Model,
+						server.DeviceSerial,
+						formattedBootTime, // Use formatted time
 						strconv.Itoa(site.SiteID),
 						strconv.Itoa(client.ClientID),
 					}); err != nil {
 						log.Printf("Warning: Failed to write server %d to CSV: %v", server.ServerID, err)
 					}
+					// Append server detail to site (extended data)
 					siteDetail.Servers = append(siteDetail.Servers, ServerDetail{
-						ID:     server.ServerID,
-						Name:   server.Name,
-						Online: server.Online == 1,
-						OS:     server.OS,
-						IP:     server.IP,
+						ID:           server.ServerID,
+						Name:         server.Name,
+						Online:       server.Online == 1,
+						OS:           server.OS,
+						IP:           server.IP,
+						User:         server.User,
+						Manufacturer: server.Manufacturer,
+						Model:        server.Model,
+						DeviceSerial: server.DeviceSerial,
+						LastBootTime: formattedBootTime, // Use formatted time
 					})
 				}
 
 				// Process and write workstations
 				for _, ws := range workstations {
+					// Format the timestamp
+					formattedBootTime := formatUnixTimestamp(ws.LastBootTime)
+
+					// Write workstation to CSV (extended data)
 					if err := writers["workstations"].Write([]string{
 						strconv.Itoa(ws.WorkstationID),
 						ws.Name,
 						ws.OS,
 						ws.IP,
 						strconv.Itoa(ws.Online),
+						ws.User,
+						ws.Manufacturer,
+						ws.Model,
+						ws.DeviceSerial,
+						formattedBootTime, // Use formatted time
 						strconv.Itoa(site.SiteID),
 						strconv.Itoa(client.ClientID),
 					}); err != nil {
 						log.Printf("Warning: Failed to write workstation %d to CSV: %v", ws.WorkstationID, err)
 					}
+					// Append workstation detail to site (extended data)
 					siteDetail.Workstations = append(siteDetail.Workstations, WorkstationDetail{
-						ID:     ws.WorkstationID,
-						Name:   ws.Name,
-						Online: ws.Online == 1,
-						OS:     ws.OS,
-						IP:     ws.IP,
+						ID:           ws.WorkstationID,
+						Name:         ws.Name,
+						Online:       ws.Online == 1,
+						OS:           ws.OS,
+						IP:           ws.IP,
+						User:         ws.User,
+						Manufacturer: ws.Manufacturer,
+						Model:        ws.Model,
+						DeviceSerial: ws.DeviceSerial,
+						LastBootTime: formattedBootTime, // Use formatted time
 					})
 				}
 

@@ -26,11 +26,15 @@ type SiteOutput struct {
 
 // ServerOutput defines the structure for JSON output for servers
 type ServerOutput struct {
-	ServerID int    `json:"server_id"`
-	Name     string `json:"server_name"`
-	Online   bool   `json:"online"`
-	OS       string `json:"os,omitempty"`
-	IP       string `json:"ip,omitempty"`
+	ServerID     int    `json:"server_id"`
+	Name         string `json:"server_name"`
+	Online       bool   `json:"online"`
+	OS           string `json:"os,omitempty"`
+	IP           string `json:"ip,omitempty"`
+	User         string `json:"user,omitempty"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Model        string `json:"model,omitempty"`
+	DeviceSerial string `json:"serial_number,omitempty"`
 }
 
 // WorkstationOutput defines the structure for JSON output for workstations
@@ -40,6 +44,10 @@ type WorkstationOutput struct {
 	Online        bool   `json:"online"`
 	OS            string `json:"os,omitempty"`
 	IP            string `json:"ip,omitempty"`
+	User          string `json:"user,omitempty"`
+	Manufacturer  string `json:"manufacturer,omitempty"`
+	Model         string `json:"model,omitempty"`
+	DeviceSerial  string `json:"serial_number,omitempty"`
 }
 
 // -- Helper Functions (Now using nsight.ApiClient) --
@@ -150,11 +158,15 @@ func printServersAsJSON(apiClient *nsight.ApiClient, siteID int) {
 	var output []ServerOutput
 	for _, serverItem := range servers {
 		output = append(output, ServerOutput{
-			ServerID: serverItem.ServerID,
-			Name:     serverItem.Name,
-			Online:   serverItem.Online == 1,
-			OS:       serverItem.OS,
-			IP:       serverItem.IP,
+			ServerID:     serverItem.ServerID,
+			Name:         serverItem.Name,
+			Online:       serverItem.Online == 1,
+			OS:           serverItem.OS,
+			IP:           serverItem.IP,
+			User:         serverItem.User,
+			Manufacturer: serverItem.Manufacturer,
+			Model:        serverItem.Model,
+			DeviceSerial: serverItem.DeviceSerial,
 		})
 	}
 
@@ -185,6 +197,10 @@ func printWorkstationsAsJSON(apiClient *nsight.ApiClient, siteID int) {
 			Online:        ws.Online == 1,
 			OS:            ws.OS,
 			IP:            ws.IP,
+			User:          ws.User,
+			Manufacturer:  ws.Manufacturer,
+			Model:         ws.Model,
+			DeviceSerial:  ws.DeviceSerial,
 		})
 	}
 

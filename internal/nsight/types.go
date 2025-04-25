@@ -38,13 +38,18 @@ type SiteResult struct {
 
 // Server represents the structure of a server in the XML response
 type Server struct {
-	XMLName     xml.Name `xml:"server"`
-	ServerID    int      `xml:"serverid"`
-	Name        string   `xml:"name"`
-	Description string   `xml:"description"`
-	OS          string   `xml:"os"`
-	IP          string   `xml:"ip"`
-	Online      int      `xml:"online"` // 0 or 1
+	XMLName      xml.Name `xml:"server"`
+	ServerID     int      `xml:"serverid"`
+	Name         string   `xml:"name"`
+	Description  string   `xml:"description"`
+	OS           string   `xml:"os"`
+	IP           string   `xml:"ip"`
+	Online       int      `xml:"online"`                   // 0 or 1
+	User         string   `xml:"user,omitempty"`           // Added user
+	Manufacturer string   `xml:"manufacturer,omitempty"`   // Added manufacturer
+	Model        string   `xml:"model,omitempty"`          // Added model
+	DeviceSerial string   `xml:"device_serial,omitempty"`  // Added device_serial
+	LastBootTime string   `xml:"last_boot_time,omitempty"` // Added last_boot_time
 	// Add other relevant fields based on actual API response if needed
 }
 
@@ -64,7 +69,12 @@ type Workstation struct {
 	Description   string   `xml:"description"`
 	OS            string   `xml:"os"`
 	IP            string   `xml:"ip"`
-	Online        int      `xml:"online"` // 0 or 1
+	Online        int      `xml:"online"`                   // 0 or 1
+	User          string   `xml:"user,omitempty"`           // Added user
+	Manufacturer  string   `xml:"manufacturer,omitempty"`   // Added manufacturer
+	Model         string   `xml:"model,omitempty"`          // Added model
+	DeviceSerial  string   `xml:"device_serial,omitempty"`  // Added device_serial
+	LastBootTime  string   `xml:"last_boot_time,omitempty"` // Added last_boot_time
 	// Add other relevant fields based on actual API response if needed
 }
 
