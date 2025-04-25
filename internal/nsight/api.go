@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"golang.org/x/net/html/charset"
@@ -154,4 +155,33 @@ func (c *ApiClient) FetchWorkstations(siteID int) ([]Workstation, error) {
 		return nil, fmt.Errorf("decoding workstations for site %d: %w", siteID, err)
 	}
 	return result.Items, nil
+}
+
+// FetchDeviceAssetDetails fetches asset details for a specific deviceID
+func (c *ApiClient) FetchDeviceAssetDetails(deviceID int) (*AssetDetails, error) {
+	params := map[string]string{
+		"service":  "list_device_asset_details",
+		"deviceid": strconv.Itoa(deviceID),
+	}
+
+	body, err := c.callAPI("list_device_asset_details", params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make API request for device asset details (device %d): %w", deviceID, err)
+	}
+
+	var result AssetDetails
+	// Use decodeXML to handle potential charset issues like ISO-8859-1
+	if err := decodeXML(body, &result); err != nil {
+		// Log the body for debugging if unmarshal fails
+		log.Printf("Failed to decode device asset details XML for device %d. Body: %s", deviceID, string(body))
+		return nil, fmt.Errorf("failed to decode device asset details XML for device %d: %w", deviceID, err)
+	}
+
+	// Basic check for empty results (though API might return OK with empty fields)
+	if result.Manufacturer == "" && result.Model == "" && len(result.Hardware) == 0 { // Heuristic check
+		log.Printf("Warning: Received potentially empty or incomplete asset details for device %d", deviceID)
+		// Decide if this should be an error or just return the potentially empty struct
+	}
+
+	return &result, nil
 }

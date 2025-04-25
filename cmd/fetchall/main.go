@@ -36,29 +36,31 @@ func formatUnixTimestamp(timestampStr string) string {
 // --- Output Structures for Nested JSON ---
 
 type ServerDetail struct {
-	ID           int    `json:"server_id"`
-	Name         string `json:"server_name"`
-	Online       bool   `json:"online"`
-	OS           string `json:"os,omitempty"`
-	IP           string `json:"ip,omitempty"`
-	User         string `json:"user,omitempty"`
-	Manufacturer string `json:"manufacturer,omitempty"`
-	Model        string `json:"model,omitempty"`
-	DeviceSerial string `json:"serial_number,omitempty"`
-	LastBootTime string `json:"last_boot_time,omitempty"`
+	ID           int                  `json:"server_id"`
+	Name         string               `json:"server_name"`
+	Online       bool                 `json:"online"`
+	OS           string               `json:"os,omitempty"`
+	IP           string               `json:"ip,omitempty"`
+	User         string               `json:"user,omitempty"`
+	Manufacturer string               `json:"manufacturer,omitempty"`
+	Model        string               `json:"model,omitempty"`
+	DeviceSerial string               `json:"serial_number,omitempty"`
+	LastBootTime string               `json:"last_boot_time,omitempty"`
+	AssetInfo    *nsight.AssetDetails `json:"asset_details,omitempty"`
 }
 
 type WorkstationDetail struct {
-	ID           int    `json:"workstation_id"`
-	Name         string `json:"workstation_name"`
-	Online       bool   `json:"online"`
-	OS           string `json:"os,omitempty"`
-	IP           string `json:"ip,omitempty"`
-	User         string `json:"user,omitempty"`
-	Manufacturer string `json:"manufacturer,omitempty"`
-	Model        string `json:"model,omitempty"`
-	DeviceSerial string `json:"serial_number,omitempty"`
-	LastBootTime string `json:"last_boot_time,omitempty"`
+	ID           int                  `json:"workstation_id"`
+	Name         string               `json:"workstation_name"`
+	Online       bool                 `json:"online"`
+	OS           string               `json:"os,omitempty"`
+	IP           string               `json:"ip,omitempty"`
+	User         string               `json:"user,omitempty"`
+	Manufacturer string               `json:"manufacturer,omitempty"`
+	Model        string               `json:"model,omitempty"`
+	DeviceSerial string               `json:"serial_number,omitempty"`
+	LastBootTime string               `json:"last_boot_time,omitempty"`
+	AssetInfo    *nsight.AssetDetails `json:"asset_details,omitempty"`
 }
 
 type SiteDetail struct {
@@ -392,7 +394,14 @@ func main() {
 					// Format the timestamp
 					formattedBootTime := formatUnixTimestamp(server.LastBootTime)
 
-					// Write server to CSV (extended data)
+					// Fetch asset details
+					assetDetails, err := apiClient.FetchDeviceAssetDetails(server.ServerID)
+					if err != nil {
+						log.Printf("Warning: Failed to fetch asset details for server %d: %v", server.ServerID, err)
+						// assetDetails will be nil, so AssetInfo will be omitted in JSON
+					}
+
+					// Write server to CSV (extended data) - CSV does not include asset details
 					if err := writers["servers"].Write([]string{
 						strconv.Itoa(server.ServerID),
 						server.Name,
@@ -421,6 +430,7 @@ func main() {
 						Model:        server.Model,
 						DeviceSerial: server.DeviceSerial,
 						LastBootTime: formattedBootTime, // Use formatted time
+						AssetInfo:    assetDetails,      // Assign fetched asset details
 					})
 				}
 
@@ -429,7 +439,14 @@ func main() {
 					// Format the timestamp
 					formattedBootTime := formatUnixTimestamp(ws.LastBootTime)
 
-					// Write workstation to CSV (extended data)
+					// Fetch asset details
+					assetDetails, err := apiClient.FetchDeviceAssetDetails(ws.WorkstationID)
+					if err != nil {
+						log.Printf("Warning: Failed to fetch asset details for workstation %d: %v", ws.WorkstationID, err)
+						// assetDetails will be nil, so AssetInfo will be omitted in JSON
+					}
+
+					// Write workstation to CSV (extended data) - CSV does not include asset details
 					if err := writers["workstations"].Write([]string{
 						strconv.Itoa(ws.WorkstationID),
 						ws.Name,
@@ -458,6 +475,7 @@ func main() {
 						Model:        ws.Model,
 						DeviceSerial: ws.DeviceSerial,
 						LastBootTime: formattedBootTime, // Use formatted time
+						AssetInfo:    assetDetails,      // Assign fetched asset details
 					})
 				}
 
