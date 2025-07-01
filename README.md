@@ -22,7 +22,7 @@ Tento projekt poskytuje nástroje příkazové řádky a (v budoucnu) API server
 
 ## Dostupné Nástroje
 
-Projekt obsahuje dva hlavní nástroje v adresáři `cmd/`:
+Projekt obsahuje tři hlavní nástroje v adresáři `cmd/`:
 
 ### 1. `getdata` - Komplexní API nástroj
 
@@ -323,6 +323,31 @@ Výstupem je pole objektů, kde každý objekt reprezentuje klienta a obsahuje v
   // ... dalsi klienti
 ]
 ```
+
+### 3. `nsight-proxy` - JSON API Proxy Server
+
+HTTP proxy server, který převádí N-Sight XML API na JSON formát. Poslouchá na portu 80 a poskytuje stejné API volání jako originální N-Sight, ale s JSON výstupem místo XML.
+
+**Spuštění:**
+
+```bash
+go run cmd/nsight-proxy/main.go
+```
+
+**Použití:**
+
+```bash
+# Získání seznamu klientů ve formátu JSON
+curl "http://localhost/api/?service=list_clients"
+
+# Získání serverů pro site 123
+curl "http://localhost/api/?service=list_servers&siteid=123"
+
+# Health check
+curl "http://localhost/health"
+```
+
+Proxy server podporuje všechna API volání stejně jako nástroj `getdata`, ale poskytuje je přes HTTP rozhraní s JSON výstupem. Více informací v [dokumentaci proxy serveru](cmd/nsight-proxy/README.md).
 
 ## API Server (`cmd/server`)
 
