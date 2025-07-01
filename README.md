@@ -1,6 +1,6 @@
 # NSight Proxy
 
-Tento projekt poskytuje nástroje příkazové řádky a (v budoucnu) API server pro interakci s N-Able N-Sight Data Extraction API. Hlavním cílem je usnadnit získávání dat v JSON formátu a agregovat informace z více API volání.
+Tento projekt poskytuje nástroje příkazové řádky a HTTP proxy server pro interakci s N-Able N-Sight Data Extraction API. Hlavním cílem je usnadnit získávání dat v JSON formátu a agregovat informace z více API volání.
 
 ## Požadavky
 
@@ -22,7 +22,7 @@ Tento projekt poskytuje nástroje příkazové řádky a (v budoucnu) API server
 
 ## Dostupné Nástroje
 
-Projekt obsahuje tři hlavní nástroje v adresáři `cmd/`:
+Projekt obsahuje tři nástroje v adresáři `cmd/`:
 
 ### 1. `getdata` - Komplexní API nástroj
 
@@ -348,18 +348,6 @@ curl "http://localhost/health"
 ```
 
 Proxy server podporuje všechna API volání stejně jako nástroj `getdata`, ale poskytuje je přes HTTP rozhraní s JSON výstupem. Více informací v [dokumentaci proxy serveru](cmd/nsight-proxy/README.md).
-
-## API Server (`cmd/server`)
-
-Adresář `cmd/server/main.go` obsahuje základ pro budoucí REST API server. V současné době pouze spustí jednoduchý HTTP server na portu 8080 a na kořenové cestě `/` vrací uvítací zprávu.
-
-**Spuštění:**
-
-```bash
-go run cmd/server/main.go
-```
-
-Tento server bude v budoucnu rozšířen o endpointy, které budou využívat buď přímá volání API (přes `internal/nsight`) nebo data načtená z CSV cache (vytvořené nástrojem `fetchall`).
 
 ## Podporovaná API volání
 

@@ -7,7 +7,7 @@ set -e
 PLATFORMS=("windows/amd64" "windows/arm64" "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64")
 
 # Define commands to build (corresponds to directories in cmd/)
-COMMANDS=("getdata" "fetchall" "server" "nsight-proxy")
+COMMANDS=("getdata" "fetchall" "nsight-proxy")
 
 # Output directory
 OUTPUT_DIR="bin"
