@@ -19,7 +19,7 @@
 }
 
 ## Implementace
-Implementovat v jazyce GO, tak, aby projekt byl zároveň modulem, který lze volat z jiných projektů. v `cmd/server/main.go` implementovat API endpoint, v `cmd/<tool>/main.go` implemntovat nástroje. Například bych rád implementoval `cmd/getdata/main.go`, který by z příkazového řádku zavolal N-Sight Data Extraction API a na standardní výstup vrátil odpovídající reprezentaci dat v JSON. Další tool je `cmd/fetchall/main.go`, který do adresáře data/ stáhne všechna relevantní data jako velké CVS, které bude sloužit jako cache pro agregované volání z bodu 2 výše.
+Implementovat v jazyce GO, tak, aby projekt byl zároveň modulem, který lze volat z jiných projektů. v `cmd/<tool>/main.go` implementovat nástroje. Například bych rád implementoval `cmd/getdata/main.go`, který by z příkazového řádku zavolal N-Sight Data Extraction API a na standardní výstup vrátil odpovídající reprezentaci dat v JSON. Další tool je `cmd/fetchall/main.go`, který do adresáře data/ stáhne všechna relevantní data jako velké CVS, které bude sloužit jako cache pro agregované volání z bodu 2 výše.
 
 API key a server pro vytvoření URL pro data extraction api bude v .env souboru. Obecný formát volání N-Sight API je `https://{server}/api/?apikey={yourAPIkey}&service={service_name}&parameter={parameter-value}`
 

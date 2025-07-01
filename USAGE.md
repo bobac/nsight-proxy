@@ -1,15 +1,15 @@
 # Použití Nástrojů NSight Proxy (bez zdrojového kódu)
 
-Tento dokument popisuje, jak používat zkompilované nástroje `getdata`, `fetchall` a `server`.
+Tento dokument popisuje, jak používat zkompilované nástroje `getdata`, `fetchall` a `nsight-proxy`.
 
 ## Požadavky
 
-*   Spustitelné soubory `getdata`, `fetchall` a `server` pro váš operační systém.
+*   Spustitelné soubory `getdata`, `fetchall` a `nsight-proxy` pro váš operační systém.
 *   Soubor `.env` umístěný ve stejném adresáři jako spustitelné soubory.
 
 ## Nastavení
 
-1.  **Umístěte spustitelné soubory**: Zkopírujte soubory `getdata`, `fetchall` a `server` do adresáře, kde chcete projekt používat.
+1.  **Umístěte spustitelné soubory**: Zkopírujte soubory `getdata`, `fetchall` a `nsight-proxy` do adresáře, kde chcete projekt používat.
 2.  **Vytvořte soubor `.env`**: Ve stejném adresáři vytvořte soubor s názvem `.env` (můžete zkopírovat `.env.example`, pokud ho máte k dispozici).
 3.  **Vyplňte `.env`**: Otevřete soubor `.env` a zadejte platné hodnoty pro proměnné:
     *   `NSIGHT_API_KEY=VAS_API_KLIC`
@@ -90,15 +90,15 @@ Stáhne data o všech klientech, sites a zařízeních. Vytvoří/aktualizuje CS
     ./fetchall -cache cache_data.json
     ```
 
-### 3. `server`
+### 3. `nsight-proxy`
 
-Spustí jednoduchý HTTP API server (aktuálně jen s uvítací zprávou).
+Spustí HTTP proxy server, který převádí N-Sight XML API na JSON formát.
 
 **Syntaxe:**
 
 ```bash
-./server
+./nsight-proxy
 ```
-*(Na Windows použijte `.\server.exe`)*
+*(Na Windows použijte `.\nsight-proxy.exe`)*
 
-Server běží na popředí a naslouchá na portu 8080. Ukončíte ho stiskem `Ctrl+C`. Server také potřebuje přístup k souboru `.env` pro budoucí načítání konfigurace API. 
+Server běží na popředí a naslouchá na portu 80. Ukončíte ho stiskem `Ctrl+C`. Server potřebuje přístup k souboru `.env` pro konfiguraci N-Sight serveru. Více informací o použití proxy serveru najdete v dokumentaci. 
