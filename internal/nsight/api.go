@@ -185,3 +185,464 @@ func (c *ApiClient) FetchDeviceAssetDetails(deviceID int) (*AssetDetails, error)
 
 	return &result, nil
 }
+
+// -- Check-related methods --
+
+// FetchFailingChecks fetches all failing checks
+func (c *ApiClient) FetchFailingChecks() ([]Check, error) {
+	bodyBytes, err := c.callAPI("list_failing_checks", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchChecks fetches all checks for a device or site
+func (c *ApiClient) FetchChecks(deviceID int) ([]Check, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_checks", params)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchChecksBySite fetches all checks for a site
+func (c *ApiClient) FetchChecksBySite(siteID int) ([]Check, error) {
+	params := map[string]string{"siteid": fmt.Sprintf("%d", siteID)}
+	bodyBytes, err := c.callAPI("list_checks", params)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// ClearCheck clears a specific check
+func (c *ApiClient) ClearCheck(checkID int) error {
+	params := map[string]string{"checkid": fmt.Sprintf("%d", checkID)}
+	_, err := c.callAPI("clear_check", params)
+	return err
+}
+
+// AddCheckNote adds a note to a check
+func (c *ApiClient) AddCheckNote(checkID int, note string) error {
+	params := map[string]string{
+		"checkid": fmt.Sprintf("%d", checkID),
+		"note":    note,
+	}
+	_, err := c.callAPI("add_check_note", params)
+	return err
+}
+
+// -- Device-related methods --
+
+// FetchDevices fetches devices for a client
+func (c *ApiClient) FetchDevices(clientID int) ([]Device, error) {
+	params := map[string]string{"clientid": fmt.Sprintf("%d", clientID)}
+	bodyBytes, err := c.callAPI("list_devices_at_client", params)
+	if err != nil {
+		return nil, err
+	}
+	var result DeviceResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchDevicesBySite fetches devices for a site
+func (c *ApiClient) FetchDevicesBySite(siteID int) ([]Device, error) {
+	params := map[string]string{"siteid": fmt.Sprintf("%d", siteID)}
+	bodyBytes, err := c.callAPI("list_devices", params)
+	if err != nil {
+		return nil, err
+	}
+	var result DeviceResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchDeviceMonitoringDetails fetches monitoring details for a device
+func (c *ApiClient) FetchDeviceMonitoringDetails(deviceID int) ([]Check, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_device_monitoring_details", params)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Agentless Asset methods --
+
+// FetchAgentlessAssets fetches agentless assets for a site
+func (c *ApiClient) FetchAgentlessAssets(siteID int) ([]AgentlessAsset, error) {
+	params := map[string]string{"siteid": fmt.Sprintf("%d", siteID)}
+	bodyBytes, err := c.callAPI("list_agentless_assets", params)
+	if err != nil {
+		return nil, err
+	}
+	var result AgentlessAssetResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Asset Tracking methods --
+
+// FetchHardware fetches hardware information for a device
+func (c *ApiClient) FetchHardware(deviceID int) ([]HardwareItem, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_hardware", params)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		XMLName xml.Name       `xml:"result"`
+		Items   []HardwareItem `xml:"items>item"`
+	}
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchSoftware fetches software information for a device
+func (c *ApiClient) FetchSoftware(deviceID int) ([]SoftwareItem, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_software", params)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		XMLName xml.Name       `xml:"result"`
+		Items   []SoftwareItem `xml:"items>item"`
+	}
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchLicenseGroups fetches license groups
+func (c *ApiClient) FetchLicenseGroups() ([]LicenseGroup, error) {
+	bodyBytes, err := c.callAPI("list_license_groups", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result LicenseGroupResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Patch Management methods --
+
+// FetchPatches fetches all patches for a device
+func (c *ApiClient) FetchPatches(deviceID int) ([]Patch, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_patches", params)
+	if err != nil {
+		return nil, err
+	}
+	var result PatchResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// ApprovePatches approves patches for a device
+func (c *ApiClient) ApprovePatches(deviceID int, patchIDs []int) error {
+	patchIDsStr := make([]string, len(patchIDs))
+	for i, id := range patchIDs {
+		patchIDsStr[i] = fmt.Sprintf("%d", id)
+	}
+	params := map[string]string{
+		"deviceid": fmt.Sprintf("%d", deviceID),
+		"patchids": fmt.Sprintf("[%s]", fmt.Sprintf("%s", patchIDsStr)),
+	}
+	_, err := c.callAPI("approve_patch", params)
+	return err
+}
+
+// IgnorePatches ignores patches for a device
+func (c *ApiClient) IgnorePatches(deviceID int, patchIDs []int) error {
+	patchIDsStr := make([]string, len(patchIDs))
+	for i, id := range patchIDs {
+		patchIDsStr[i] = fmt.Sprintf("%d", id)
+	}
+	params := map[string]string{
+		"deviceid": fmt.Sprintf("%d", deviceID),
+		"patchids": fmt.Sprintf("[%s]", fmt.Sprintf("%s", patchIDsStr)),
+	}
+	_, err := c.callAPI("ignore_patch", params)
+	return err
+}
+
+// -- Antivirus methods --
+
+// FetchAntivirusProducts fetches supported antivirus products
+func (c *ApiClient) FetchAntivirusProducts() ([]AntivirusProduct, error) {
+	bodyBytes, err := c.callAPI("list_antivirus_products", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result AntivirusProductResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchAntivirusDefinitions fetches antivirus definition information
+func (c *ApiClient) FetchAntivirusDefinitions(deviceID int) ([]AntivirusDefinition, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_antivirus_definitions", params)
+	if err != nil {
+		return nil, err
+	}
+	var result AntivirusDefinitionResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchQuarantineList fetches quarantined items
+func (c *ApiClient) FetchQuarantineList(deviceID int) ([]QuarantineItem, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_quarantine", params)
+	if err != nil {
+		return nil, err
+	}
+	var result QuarantineResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// StartAntivirusScan starts an antivirus scan
+func (c *ApiClient) StartAntivirusScan(deviceID int, scanType string) error {
+	params := map[string]string{
+		"deviceid": fmt.Sprintf("%d", deviceID),
+		"scantype": scanType,
+	}
+	_, err := c.callAPI("start_scan", params)
+	return err
+}
+
+// -- Performance History methods --
+
+// FetchPerformanceHistory fetches performance monitoring data
+func (c *ApiClient) FetchPerformanceHistory(deviceID, checkID int, startDate, endDate string) ([]PerformanceData, error) {
+	params := map[string]string{
+		"deviceid":  fmt.Sprintf("%d", deviceID),
+		"checkid":   fmt.Sprintf("%d", checkID),
+		"startdate": startDate,
+		"enddate":   endDate,
+	}
+	bodyBytes, err := c.callAPI("list_performance_history", params)
+	if err != nil {
+		return nil, err
+	}
+	var result PerformanceResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchDriveSpaceHistory fetches drive space history
+func (c *ApiClient) FetchDriveSpaceHistory(deviceID int, startDate, endDate string) ([]PerformanceData, error) {
+	params := map[string]string{
+		"deviceid":  fmt.Sprintf("%d", deviceID),
+		"startdate": startDate,
+		"enddate":   endDate,
+	}
+	bodyBytes, err := c.callAPI("list_drive_space_history", params)
+	if err != nil {
+		return nil, err
+	}
+	var result PerformanceResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Template methods --
+
+// FetchTemplates fetches monitoring templates
+func (c *ApiClient) FetchTemplates() ([]Template, error) {
+	bodyBytes, err := c.callAPI("list_templates", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result TemplateResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Backup methods --
+
+// FetchBackupSessions fetches backup & recovery sessions
+func (c *ApiClient) FetchBackupSessions(deviceID int) ([]BackupSession, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_backup_sessions", params)
+	if err != nil {
+		return nil, err
+	}
+	var result BackupSessionResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Settings methods --
+
+// FetchWallChartSettings fetches wall chart settings
+func (c *ApiClient) FetchWallChartSettings() ([]Setting, error) {
+	bodyBytes, err := c.callAPI("list_wall_chart_settings", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result SettingResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// FetchGeneralSettings fetches general settings
+func (c *ApiClient) FetchGeneralSettings() ([]Setting, error) {
+	bodyBytes, err := c.callAPI("list_general_settings", nil)
+	if err != nil {
+		return nil, err
+	}
+	var result SettingResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Task methods --
+
+// FetchActiveDirectoryUsers fetches Active Directory users
+func (c *ApiClient) FetchActiveDirectoryUsers(deviceID int) ([]ADUser, error) {
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI("list_active_directory_users", params)
+	if err != nil {
+		return nil, err
+	}
+	var result ADUserResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// RunTaskNow runs a task immediately
+func (c *ApiClient) RunTaskNow(taskID int) error {
+	params := map[string]string{"taskid": fmt.Sprintf("%d", taskID)}
+	_, err := c.callAPI("run_task_now", params)
+	return err
+}
+
+// -- Site Management methods --
+
+// AddClient adds a new client
+func (c *ApiClient) AddClient(name, contactName, contactEmail string) error {
+	params := map[string]string{
+		"name":         name,
+		"contactname":  contactName,
+		"contactemail": contactEmail,
+	}
+	_, err := c.callAPI("add_client", params)
+	return err
+}
+
+// AddSite adds a new site to a client
+func (c *ApiClient) AddSite(clientID int, name, contactName, contactEmail string) error {
+	params := map[string]string{
+		"clientid":     fmt.Sprintf("%d", clientID),
+		"name":         name,
+		"contactname":  contactName,
+		"contactemail": contactEmail,
+	}
+	_, err := c.callAPI("add_site", params)
+	return err
+}
+
+// GetSiteInstallationPackage gets installation package for a site
+func (c *ApiClient) GetSiteInstallationPackage(siteID int, packageType string) ([]byte, error) {
+	params := map[string]string{
+		"siteid":      fmt.Sprintf("%d", siteID),
+		"packagetype": packageType,
+	}
+	return c.callAPI("get_site_installation_package", params)
+}
+
+// -- Outage methods --
+
+// FetchOutages fetches system outages
+func (c *ApiClient) FetchOutages(siteID int, startDate, endDate string) ([]Check, error) {
+	params := map[string]string{
+		"siteid":    fmt.Sprintf("%d", siteID),
+		"startdate": startDate,
+		"enddate":   endDate,
+	}
+	bodyBytes, err := c.callAPI("list_outages", params)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+// -- Check Configuration methods --
+
+// FetchCheckConfiguration fetches check configuration for a device
+func (c *ApiClient) FetchCheckConfiguration(deviceID int, os string) ([]Check, error) {
+	serviceName := "list_check_configuration"
+	if os != "" {
+		serviceName = fmt.Sprintf("list_check_configuration_%s", os)
+	}
+	params := map[string]string{"deviceid": fmt.Sprintf("%d", deviceID)}
+	bodyBytes, err := c.callAPI(serviceName, params)
+	if err != nil {
+		return nil, err
+	}
+	var result CheckResult
+	if err := decodeXML(bodyBytes, &result); err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
