@@ -40,6 +40,15 @@ func NewApiClient() (*ApiClient, error) {
 	return &ApiClient{apiKey: apiKey, server: server}, nil
 }
 
+// NewApiClientWithCredentials creates a new ApiClient with provided API key and server
+func NewApiClientWithCredentials(apiKey, server string) (*ApiClient, error) {
+	if apiKey == "" || server == "" {
+		return nil, errors.New("apiKey and server must not be empty")
+	}
+
+	return &ApiClient{apiKey: apiKey, server: server}, nil
+}
+
 // callAPI performs the HTTP GET request and returns the response body bytes
 func (c *ApiClient) callAPI(service string, params map[string]string) ([]byte, error) {
 	base, err := url.Parse(fmt.Sprintf("https://%s/api/", c.server))

@@ -5,24 +5,32 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
 	"nsight-proxy/internal/nsight"
 )
 
-// ProxyServer wraps the nsight API client
+// ProxyServer handles API requests
 type ProxyServer struct {
-	client *nsight.ApiClient
+	server string
 }
 
 // NewProxyServer creates a new proxy server instance
 func NewProxyServer() (*ProxyServer, error) {
-	client, err := nsight.NewApiClient()
+	// Only require server configuration, API key will come from requests
+	err := godotenv.Load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create N-Sight API client: %w", err)
+		log.Println("Warning: Could not load .env file:", err)
+	}
+
+	server := os.Getenv("NSIGHT_SERVER")
+	if server == "" {
+		return nil, fmt.Errorf("NSIGHT_SERVER must be set in .env file or environment variables")
 	}
 	
-	return &ProxyServer{client: client}, nil
+	return &ProxyServer{server: server}, nil
 }
 
 // handleAPI routes API requests based on service parameter
@@ -44,22 +52,35 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract service parameter
+	// Extract required parameters
 	service := r.URL.Query().Get("service")
 	if service == "" {
 		http.Error(w, `{"error": "Missing service parameter"}`, http.StatusBadRequest)
 		return
 	}
 
+	apiKey := r.URL.Query().Get("apikey")
+	if apiKey == "" {
+		http.Error(w, `{"error": "Missing apikey parameter"}`, http.StatusBadRequest)
+		return
+	}
+
 	log.Printf("Handling request for service: %s", service)
+
+	// Create API client with provided credentials
+	client, err := nsight.NewApiClientWithCredentials(apiKey, ps.server)
+	if err != nil {
+		log.Printf("Error creating API client: %v", err)
+		http.Error(w, `{"error": "Failed to create API client"}`, http.StatusInternalServerError)
+		return
+	}
 
 	// Route to appropriate handler based on service
 	var result interface{}
-	var err error
 
 	switch service {
 	case "list_clients":
-		result, err = ps.client.FetchClients()
+		result, err = client.FetchClients()
 	
 	case "list_sites":
 		clientID, parseErr := strconv.Atoi(r.URL.Query().Get("clientid"))
@@ -67,7 +88,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid clientid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchSites(clientID)
+		result, err = client.FetchSites(clientID)
 	
 	case "list_servers":
 		siteID, parseErr := strconv.Atoi(r.URL.Query().Get("siteid"))
@@ -75,7 +96,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid siteid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchServers(siteID)
+		result, err = client.FetchServers(siteID)
 	
 	case "list_workstations":
 		siteID, parseErr := strconv.Atoi(r.URL.Query().Get("siteid"))
@@ -83,7 +104,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid siteid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchWorkstations(siteID)
+		result, err = client.FetchWorkstations(siteID)
 	
 	case "list_devices":
 		siteID, parseErr := strconv.Atoi(r.URL.Query().Get("siteid"))
@@ -91,7 +112,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid siteid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchDevicesBySite(siteID)
+		result, err = client.FetchDevicesBySite(siteID)
 	
 	case "list_devices_at_client":
 		clientID, parseErr := strconv.Atoi(r.URL.Query().Get("clientid"))
@@ -99,7 +120,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid clientid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchDevices(clientID)
+		result, err = client.FetchDevices(clientID)
 	
 	case "list_device_asset_details":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -107,10 +128,10 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchDeviceAssetDetails(deviceID)
+		result, err = client.FetchDeviceAssetDetails(deviceID)
 	
 	case "list_failing_checks":
-		result, err = ps.client.FetchFailingChecks()
+		result, err = client.FetchFailingChecks()
 	
 	case "list_checks":
 		deviceIDStr := r.URL.Query().Get("deviceid")
@@ -122,14 +143,14 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 				return
 			}
-			result, err = ps.client.FetchChecks(deviceID)
+			result, err = client.FetchChecks(deviceID)
 		} else if siteIDStr != "" {
 			siteID, parseErr := strconv.Atoi(siteIDStr)
 			if parseErr != nil {
 				http.Error(w, `{"error": "Invalid siteid parameter"}`, http.StatusBadRequest)
 				return
 			}
-			result, err = ps.client.FetchChecksBySite(siteID)
+			result, err = client.FetchChecksBySite(siteID)
 		} else {
 			http.Error(w, `{"error": "Missing deviceid or siteid parameter"}`, http.StatusBadRequest)
 			return
@@ -141,7 +162,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchDeviceMonitoringDetails(deviceID)
+		result, err = client.FetchDeviceMonitoringDetails(deviceID)
 	
 	case "list_agentless_assets":
 		siteID, parseErr := strconv.Atoi(r.URL.Query().Get("siteid"))
@@ -149,7 +170,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid siteid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchAgentlessAssets(siteID)
+		result, err = client.FetchAgentlessAssets(siteID)
 	
 	case "list_hardware":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -157,7 +178,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchHardware(deviceID)
+		result, err = client.FetchHardware(deviceID)
 	
 	case "list_software":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -165,10 +186,10 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchSoftware(deviceID)
+		result, err = client.FetchSoftware(deviceID)
 	
 	case "list_license_groups":
-		result, err = ps.client.FetchLicenseGroups()
+		result, err = client.FetchLicenseGroups()
 	
 	case "list_patches":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -176,10 +197,10 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchPatches(deviceID)
+		result, err = client.FetchPatches(deviceID)
 	
 	case "list_antivirus_products":
-		result, err = ps.client.FetchAntivirusProducts()
+		result, err = client.FetchAntivirusProducts()
 	
 	case "list_antivirus_definitions":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -187,7 +208,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchAntivirusDefinitions(deviceID)
+		result, err = client.FetchAntivirusDefinitions(deviceID)
 	
 	case "list_quarantine":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -195,7 +216,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error": "Invalid deviceid parameter"}`, http.StatusBadRequest)
 			return
 		}
-		result, err = ps.client.FetchQuarantineList(deviceID)
+		result, err = client.FetchQuarantineList(deviceID)
 	
 	case "list_performance_history":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -210,7 +231,7 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		startDate := r.URL.Query().Get("startdate")
 		endDate := r.URL.Query().Get("enddate")
-		result, err = ps.client.FetchPerformanceHistory(deviceID, checkID, startDate, endDate)
+		result, err = client.FetchPerformanceHistory(deviceID, checkID, startDate, endDate)
 	
 	case "list_drive_space_history":
 		deviceID, parseErr := strconv.Atoi(r.URL.Query().Get("deviceid"))
@@ -220,10 +241,10 @@ func (ps *ProxyServer) handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		startDate := r.URL.Query().Get("startdate")
 		endDate := r.URL.Query().Get("enddate")
-		result, err = ps.client.FetchDriveSpaceHistory(deviceID, startDate, endDate)
+		result, err = client.FetchDriveSpaceHistory(deviceID, startDate, endDate)
 	
 	case "list_templates":
-		result, err = ps.client.FetchTemplates()
+		result, err = client.FetchTemplates()
 	
 	default:
 		http.Error(w, fmt.Sprintf(`{"error": "Unsupported service: %s"}`, service), http.StatusBadRequest)

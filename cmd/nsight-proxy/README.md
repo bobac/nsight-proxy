@@ -12,21 +12,21 @@ N-Sight JSON Proxy je HTTP server, který funguje jako proxy a převodník pro N
 
 ## Konfigurace
 
-Proxy server vyžaduje stejnou konfiguraci jako ostatní nástroje v tomto projektu:
+Proxy server vyžaduje pouze konfiguraci N-Sight serveru. API klíč se předává v každém požadavku:
 
 ### Proměnné prostředí
 
 ```bash
-NSIGHT_API_KEY=your_api_key_here
 NSIGHT_SERVER=your.nsight.server.com
 ```
 
 ### .env soubor
 
 ```env
-NSIGHT_API_KEY=your_api_key_here
 NSIGHT_SERVER=your.nsight.server.com
 ```
+
+**Poznámka**: API klíč se nepředává přes .env soubor, ale musí být součástí každého HTTP požadavku jako parametr `apikey`. Tím se zajistí bezpečnost - každý uživatel musí použít svůj vlastní API klíč.
 
 ## Spuštění
 
@@ -48,24 +48,26 @@ Server se spustí na portu 80 a bude dostupný na:
 Formát volání je stejný jako originální N-Sight API, pouze s JSON výstupem:
 
 ```
-http://localhost/api/?service=<service_name>&<parameters>
+http://localhost/api/?apikey=<your_api_key>&service=<service_name>&<parameters>
 ```
+
+**Důležité**: Každý požadavek musí obsahovat parametr `apikey` s platným N-Sight API klíčem.
 
 ### Příklady volání
 
 #### Získání seznamu klientů
 ```bash
-curl "http://localhost/api/?service=list_clients"
+curl "http://localhost/api/?apikey=YOUR_API_KEY&service=list_clients"
 ```
 
 #### Získání serverů pro konkrétní site
 ```bash
-curl "http://localhost/api/?service=list_servers&siteid=123"
+curl "http://localhost/api/?apikey=YOUR_API_KEY&service=list_servers&siteid=123"
 ```
 
 #### Získání informací o zařízení
 ```bash
-curl "http://localhost/api/?service=list_device_asset_details&deviceid=456"
+curl "http://localhost/api/?apikey=YOUR_API_KEY&service=list_device_asset_details&deviceid=456"
 ```
 
 ## Podporované služby
@@ -165,9 +167,17 @@ Server loguje všechny příchozí požadavky a chyby do standardního výstupu:
 
 ## Bezpečnost
 
-- Server vyžaduje správnou konfiguraci API klíče a serveru
-- Všechny chyby jsou bezpečně zpracovány bez odhalení citlivých informací
-- CORS je nakonfigurován permisivně pro vývojové účely
+- **API klíč v URL**: Každý uživatel musí poskytnout svůj vlastní API klíč v každém požadavku
+- **Žádné sdílené klíče**: Server neuchovává žádné API klíče, což eliminuje bezpečnostní rizika
+- **Validace**: Server validuje přítomnost API klíče a serveru před zpracováním požadavku
+- **Chybové zprávy**: Všechny chyby jsou bezpečně zpracovány bez odhalení citlivých informací
+- **CORS**: Nakonfigurován permisivně pro vývojové účely - v produkci doporučujeme omezit domény
+
+**Důležité pro produkční nasazení:**
+- Používejte HTTPS pro ochranu API klíče v přenosu
+- Omezte CORS politiky na konkrétní domény
+- Implementujte rate limiting pro ochranu před zneužitím
+- Monitorujte přístup k API endpointům
 
 ## Build
 

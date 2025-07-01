@@ -338,10 +338,10 @@ go run cmd/nsight-proxy/main.go
 
 ```bash
 # Získání seznamu klientů ve formátu JSON
-curl "http://localhost/api/?service=list_clients"
+curl "http://localhost/api/?apikey=YOUR_API_KEY&service=list_clients"
 
 # Získání serverů pro site 123
-curl "http://localhost/api/?service=list_servers&siteid=123"
+curl "http://localhost/api/?apikey=YOUR_API_KEY&service=list_servers&siteid=123"
 
 # Health check
 curl "http://localhost/health"
